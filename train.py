@@ -6,9 +6,8 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from model import MNISTModel
 from tqdm import tqdm
-import random
 
-def train_model(model, device, train_loader, optimizer, scheduler, epoch):
+def train_model(model, device, train_loader, optimizer, criterion, epoch):
     model.train()
     pbar = tqdm(train_loader)
     correct = 0
@@ -18,7 +17,7 @@ def train_model(model, device, train_loader, optimizer, scheduler, epoch):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
-        loss = F.nll_loss(output, target)
+        loss = criterion(output, target)
         loss.backward()
         optimizer.step()
         
@@ -27,9 +26,6 @@ def train_model(model, device, train_loader, optimizer, scheduler, epoch):
         processed += len(data)
         
         pbar.set_description(f'Epoch: {epoch} Loss: {loss.item():.6f} Accuracy: {100*correct/processed:0.2f}%')
-        
-        if batch_idx % 100 == 0:
-            scheduler.step()
     
     return 100*correct/processed
 
@@ -37,10 +33,10 @@ def main():
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     
-    # Training transformations with augmentation
+    # Training transformations
     train_transforms = transforms.Compose([
-        transforms.RandomRotation((-15.0, 15.0)),
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
+        transforms.RandomRotation((-7.0, 7.0)),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
@@ -54,13 +50,11 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     
     model = MNISTModel().to(device)
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
-    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer, T_0=100, T_mult=1, eta_min=1e-6
-    )
     
     # Train for one epoch
-    accuracy = train_model(model, device, train_loader, optimizer, scheduler, 1)
+    accuracy = train_model(model, device, train_loader, optimizer, criterion, 1)
     print(f"Final Accuracy: {accuracy}%")
     
     # Save the model

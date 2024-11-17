@@ -5,41 +5,19 @@ import torch.nn.functional as F
 class MNISTModel(nn.Module):
     def __init__(self):
         super(MNISTModel, self).__init__()
-        # Input: 28x28x1
-        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, padding=1)  # 28x28x16
-        self.bn1 = nn.BatchNorm2d(16)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)  # 28x28x32
-        self.bn2 = nn.BatchNorm2d(32)
-        self.pool1 = nn.MaxPool2d(2)  # 14x14x32
-        self.dropout1 = nn.Dropout(0.25)
-        
-        self.conv3 = nn.Conv2d(32, 16, kernel_size=3, padding=1)  # 14x14x16
-        self.bn3 = nn.BatchNorm2d(16)
-        self.conv4 = nn.Conv2d(16, 16, kernel_size=3, padding=1)  # 14x14x16
-        self.bn4 = nn.BatchNorm2d(16)
-        self.pool2 = nn.MaxPool2d(2)  # 7x7x16
-        self.dropout2 = nn.Dropout(0.25)
-        
-        self.conv5 = nn.Conv2d(16, 32, kernel_size=3)  # 5x5x32
-        self.bn5 = nn.BatchNorm2d(32)
-        self.conv6 = nn.Conv2d(32, 10, kernel_size=3)  # 3x3x10
-        
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, padding=1)  # (batch_size, 16, 28, 28)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)  # (batch_size, 32, 28, 28)
+        self.pool = nn.MaxPool2d(2, 2)  # After first pool: (batch_size, 32, 14, 14)
+        self.fc1 = nn.Linear(32 * 14 * 14, 128)
+        self.fc2 = nn.Linear(128, 10)
+        self.dropout = nn.Dropout(0.25)
+
     def forward(self, x):
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = self.pool1(x)
-        x = self.dropout1(x)
-        
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = F.relu(self.bn4(self.conv4(x)))
-        x = self.pool2(x)
-        x = self.dropout2(x)
-        
-        x = F.relu(self.bn5(self.conv5(x)))
-        x = self.conv6(x)
-        
-        x = F.adaptive_avg_pool2d(x, 1)
-        x = x.view(-1, 10)
+        x = self.pool(F.relu(self.conv1(x)))  # (batch_size, 16, 14, 14)
+        x = self.pool(F.relu(self.conv2(x)))  # (batch_size, 32, 7, 7)
+        x = x.view(-1, 32 * 14 * 14)
+        x = self.dropout(F.relu(self.fc1(x)))
+        x = self.fc2(x)
         return F.log_softmax(x, dim=1)
 
 def get_model_parameters():
