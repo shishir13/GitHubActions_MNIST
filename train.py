@@ -57,6 +57,8 @@ def main():
     
     # Save the model
     torch.save(model.state_dict(), 'mnist_model.pth')
+    
+    return accuracy  # Return the accuracy for testing
 
 if __name__ == '__main__':
     main()
