@@ -3,63 +3,60 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
 from model import MNISTModel
-from tqdm import tqdm
 
-def train_model(model, device, train_loader, optimizer, criterion, epoch):
+# Set random seed for reproducibility
+torch.manual_seed(0)
+
+# Define transformations for the MNIST dataset
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))
+])
+
+def train_model(model, train_loader, criterion, optimizer):
     model.train()
-    pbar = tqdm(train_loader)
     correct = 0
-    processed = 0
-    
-    for batch_idx, (data, target) in enumerate(pbar):
-        data, target = data.to(device), target.to(device)
+    total = 0
+    for images, labels in train_loader:
         optimizer.zero_grad()
-        output = model(data)
-        loss = criterion(output, target)
+        outputs = model(images)
+        loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
         
-        pred = output.argmax(dim=1, keepdim=True)
-        correct += pred.eq(target.view_as(pred)).sum().item()
-        processed += len(data)
+        # Calculate training accuracy
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
         
-        pbar.set_description(f'Epoch: {epoch} Loss: {loss.item():.6f} Accuracy: {100*correct/processed:0.2f}%')
-    
-    return 100*correct/processed
+        # Print progress every 100 batches
+        if total % (100 * labels.size(0)) == 0:
+            print(f'Progress: [{total:>5d}/60000] Loss: {loss.item():.4f}')
+
+    accuracy = 100 * correct / total
+    return accuracy
 
 def main():
-    use_cuda = torch.cuda.is_available()
-    device = torch.device("cuda" if use_cuda else "cpu")
-    
-    # Training transformations
-    train_transforms = transforms.Compose([
-        transforms.RandomRotation((-7.0, 7.0)),
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ])
-    
-    # Download and load the training data
-    train_dataset = datasets.MNIST(
-        './data', train=True, download=True,
-        transform=train_transforms
-    )
-    
+    # Load the MNIST dataset
+    train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-    
-    model = MNISTModel().to(device)
+
+    # Initialize the model, loss function, and optimizer
+    model = MNISTModel()
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    
-    # Train for one epoch
-    accuracy = train_model(model, device, train_loader, optimizer, criterion, 1)
-    print(f"Final Accuracy: {accuracy}%")
+    optimizer = optim.Adam(model.parameters(), lr=0.005)  # Adjusted learning rate
+
+    # Train the model for one epoch and measure accuracy
+    accuracy = train_model(model, train_loader, criterion, optimizer)
+    print(f"Training Accuracy after 1 epoch: {accuracy:.2f}%")
+
+    # Calculate the number of parameters in the model
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total parameters in the model: {total_params}")
     
     # Save the model
     torch.save(model.state_dict(), 'mnist_model.pth')
-    return accuracy
 
 if __name__ == '__main__':
     main()

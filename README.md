@@ -2,7 +2,7 @@
 
 ![Build Status](https://github.com/shishir13/GitHubActions_MNIST/actions/workflows/model_tests.yml/badge.svg)
 
-This repository contains a lightweight CNN model for MNIST digit classification that achieves >95% accuracy in a single epoch while maintaining fewer than 25,000 parameters.
+**This** repository contains a lightweight CNN model for MNIST digit classification that achieves >95% accuracy in a single epoch while maintaining fewer than 25,000 parameters.
 
 ## Model Architecture
 
