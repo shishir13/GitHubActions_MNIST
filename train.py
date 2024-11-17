@@ -8,7 +8,7 @@ from model import MNISTModel
 from tqdm import tqdm
 import random
 
-def train_model(model, device, train_loader, optimizer, epoch):
+def train_model(model, device, train_loader, optimizer, scheduler, epoch):
     model.train()
     pbar = tqdm(train_loader)
     correct = 0
@@ -27,6 +27,9 @@ def train_model(model, device, train_loader, optimizer, epoch):
         processed += len(data)
         
         pbar.set_description(f'Epoch: {epoch} Loss: {loss.item():.6f} Accuracy: {100*correct/processed:0.2f}%')
+        
+        if batch_idx % 100 == 0:
+            scheduler.step()
     
     return 100*correct/processed
 
@@ -36,8 +39,8 @@ def main():
     
     # Training transformations with augmentation
     train_transforms = transforms.Compose([
-        transforms.RandomRotation((-7.0, 7.0)),
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+        transforms.RandomRotation((-15.0, 15.0)),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
@@ -48,13 +51,16 @@ def main():
         transform=train_transforms
     )
     
-    train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     
     model = MNISTModel().to(device)
-    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer, T_0=100, T_mult=1, eta_min=1e-6
+    )
     
     # Train for one epoch
-    accuracy = train_model(model, device, train_loader, optimizer, 1)
+    accuracy = train_model(model, device, train_loader, optimizer, scheduler, 1)
     print(f"Final Accuracy: {accuracy}%")
     
     # Save the model
